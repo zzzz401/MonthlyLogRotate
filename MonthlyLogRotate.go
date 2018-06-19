@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
@@ -41,18 +42,18 @@ func openLog(path string) *os.File {
 func generateLogFilePath(logDir string, logName string) string {
 	year := strconv.Itoa(time.Now().Year())
 	month := fmt.Sprintf("%02d", int(time.Now().Month()))
-	return logDir + logName + "-" + year + "-" + month + ".log"
+	logDir = filepath.Clean(logDir)
+	return logDir + "/" + logName + "-" + year + "-" + month + ".log"
 }
 
 var gracefulStop = make(chan os.Signal, 1)
 
 func main() {
-	logDirPtr := flag.String("logDir", "", "Path to log directory with trailing slash")
+	logDirPtr := flag.String("logDir", "", "Path to log directory")
 	logNamePtr := flag.String("logName", "", "Name of each log file")
 	flag.Parse()
 
 	stat, err := os.Stdin.Stat()
-
 	checkError(err)
 
 	if (stat.Mode() & os.ModeCharDevice) != 0 {
@@ -87,9 +88,8 @@ func main() {
 
 			text := scanner.Text()
 
-			if err := scanner.Err(); err != nil {
-				checkError(err)
-			}
+			err := scanner.Err()
+			checkError(err)
 
 			if time.Now().Unix() > endOfMonthUnix {
 				logFile.Sync()
