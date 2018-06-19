@@ -25,25 +25,17 @@ func checkError(err error) {
 }
 
 func openLog(path string) *os.File {
-	_, err := os.Stat(path)
-
-	var logFile *os.File
-
-	if err == nil {
-		logFile, err = os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0600)
-	} else {
-		logFile, err = os.Create(path)
-	}
+	logFile, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	checkError(err)
-
 	return logFile
 }
 
-func generateLogFilePath(logDir string, logName string) string {
+func generateLogFilePath(logDir string, logName string) (string, string) {
 	year := strconv.Itoa(time.Now().Year())
 	month := fmt.Sprintf("%02d", int(time.Now().Month()))
 	logDir = filepath.Clean(logDir)
-	return logDir + "/" + logName + "-" + year + "-" + month + ".log"
+	logName = filepath.Clean(logName)
+	return (logDir + "/"), (logName + "-" + year + "-" + month + ".log")
 }
 
 var gracefulStop = make(chan os.Signal, 1)
@@ -64,8 +56,11 @@ func main() {
 	signal.Notify(gracefulStop, syscall.SIGTERM)
 	signal.Notify(gracefulStop, syscall.SIGINT)
 
-	logFilePath := generateLogFilePath(*logDirPtr, *logNamePtr)
-	logFile := openLog(logFilePath)
+	logDirPath, logFilePath := generateLogFilePath(*logDirPtr, *logNamePtr)
+
+	checkError(os.MkdirAll(logDirPath, 0777))
+
+	logFile := openLog(logDirPath + logFilePath)
 
 	scanner := bufio.NewScanner(os.Stdin)
 	endOfMonthUnix := getLastDayOfMonth().Unix()
@@ -88,14 +83,14 @@ func main() {
 
 			text := scanner.Text()
 
-			err := scanner.Err()
-			checkError(err)
+			checkError(scanner.Err())
 
 			if time.Now().Unix() > endOfMonthUnix {
 				logFile.Sync()
 				logFile.Close()
-				logFilePath = generateLogFilePath(*logDirPtr, *logNamePtr)
-				logFile = openLog(logFilePath)
+				logDirPath, logFilePath = generateLogFilePath(*logDirPtr, *logNamePtr)
+				checkError(os.MkdirAll(logDirPath, 0777))
+				logFile = openLog(logDirPath + logFilePath)
 				endOfMonthUnix = getLastDayOfMonth().Unix()
 			}
 
