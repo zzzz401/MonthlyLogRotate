@@ -102,7 +102,7 @@ func main() {
 			if text != "" {
 				_, err := logFile.WriteString(text + "\r\n")
 				checkError(err)
-				logFile.Sync()
+				//logFile.Sync()
 			}
 		}
 	}
